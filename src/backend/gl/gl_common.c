@@ -256,7 +256,7 @@ _gl_average_texture_color(backend_t *base, GLuint source_texture, GLuint destina
 
 /*
  * @brief Builds a 1x1 texture which has color corresponding to the average of all
- * pixels of img by recursively rendering into texture of quorter the size (half
+ * pixels of img by recursively rendering into texture of quarter the size (half
  * width and half height).
  * Returned texture must not be deleted, since it's owned by the gl_image. It will be
  * deleted when the gl_image is released.
@@ -390,6 +390,10 @@ static void _gl_compose(backend_t *base, struct gl_image *img, GLuint target,
 	if (gd->win_shader.unifm_max_brightness >= 0) {
 		glUniform1f(gd->win_shader.unifm_max_brightness, (float)img->max_brightness);
 	}
+
+        struct timespec ts;
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        glUniform1f(gd->win_shader.unifm_time, (float)ts.tv_sec * 1000.0f + (float)ts.tv_nsec / 1.0e6f);
 
 	// log_trace("Draw: %d, %d, %d, %d -> %d, %d (%d, %d) z %d\n",
 	//          x, y, width, height, dx, dy, ptex->width, ptex->height, z);
@@ -764,6 +768,7 @@ static int gl_win_shader_from_string(const char *vshader_str, const char *fshade
 	ret->unifm_brightness = glGetUniformLocationChecked(ret->prog, "brightness");
 	ret->unifm_max_brightness =
 	    glGetUniformLocationChecked(ret->prog, "max_brightness");
+	ret->unifm_time = glGetUniformLocationChecked(ret->prog, "time");
 
 	glUseProgram(ret->prog);
 	int orig_loc = glGetUniformLocation(ret->prog, "orig");
@@ -1154,6 +1159,7 @@ const char *win_shader_glsl = GLSL(330,
 	uniform sampler2D tex;
 	uniform sampler2D brightness;
 	uniform float max_brightness;
+	uniform float time;
 
 	void main() {
 		vec4 c = texelFetch(tex, ivec2(texcoord), 0);
@@ -1216,7 +1222,10 @@ bool gl_init(struct gl_data *gd, session_t *ps) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	gl_win_shader_from_string(vertex_shader, win_shader_glsl, &gd->win_shader);
+        if (!ps->o.glx_fshader_win_str || !gl_win_shader_from_string(vertex_shader, ps->o.glx_fshader_win_str, &gd->win_shader)) {
+ 	       gl_win_shader_from_string(vertex_shader, win_shader_glsl, &gd->win_shader);
+        }
+
 	gd->fill_shader.prog = gl_create_program_from_str(fill_vert, fill_frag);
 	gd->fill_shader.color_loc = glGetUniformLocation(gd->fill_shader.prog, "color");
 

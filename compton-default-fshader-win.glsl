@@ -1,6 +1,7 @@
 uniform float opacity;
 uniform bool invert_color;
 uniform sampler2D tex;
+uniform float time;
 
 void main() {
 	vec4 c = texture2D(tex, gl_TexCoord[0]);
